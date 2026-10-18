@@ -1,6 +1,7 @@
 import json
 
 import pytest
+
 from webui.symbols import SymbolDirectory, parse_directory
 
 NASDAQ = 'Symbol|Security Name|ETF|Test Issue\nAAPL|Apple Inc. - Common Stock|N|N\nNVDA|NVIDIA Corporation - Common Stock|N|N\nTEST|Test issue|N|Y\nETF|An ETF|Y|N\nFile Creation Time: test|||\n'

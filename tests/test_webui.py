@@ -10,32 +10,29 @@ def test_stream_callback_preserves_finalization():
     graph = object.__new__(TradingAgentsGraph)
     graph.debug = False
     graph.config = {'portfolio_context': 'User holds 10 AMD shares'}
-    graph.memory_log = MagicMock()
     graph.resolve_instrument_context = MagicMock(return_value="AMD")
-    graph._memory_as_of = MagicMock(return_value="2026-10-16")
     graph.propagator = MagicMock()
     graph.propagator.get_graph_args.return_value = {}
     graph.checkpoint_input = lambda state: state
     graph.graph = MagicMock()
-    snapshots = [{"market_report": "Market evidence"}, {"final_trade_decision": "Hold"}]
-    graph.graph.stream.return_value = iter(snapshots)
-    graph._log_state = MagicMock()
+    snapshots = [{"market_report": "Market evidence"}, {"final_trade_decision": "Rating: Hold"}]
+    graph.graph.stream.return_value = (step for step in (((), "values", snapshot) for snapshot in snapshots))
+    graph.record_decision = MagicMock()
     graph.clear_checkpoint_on_success = MagicMock()
-    graph.process_signal = MagicMock(return_value="Hold")
     updates = []
     state, signal = graph._run_graph("AMD", "2026-10-16", on_update=updates.append)
     assert graph.propagator.create_initial_state.call_args.kwargs['portfolio_context'] == 'User holds 10 AMD shares'
     assert updates == snapshots
-    assert state == {"market_report": "Market evidence", "final_trade_decision": "Hold"}
+    assert state == {"market_report": "Market evidence", "final_trade_decision": "Rating: Hold"}
     assert signal == "Hold"
-    graph.memory_log.store_decision.assert_called_once()
-    graph._log_state.assert_called_once_with("2026-10-16", state)
+    graph.record_decision.assert_called_once_with("AMD", "2026-10-16", state)
     graph.clear_checkpoint_on_success.assert_called_once()
 
 
 def test_portfolio_and_analysis(tmp_path, monkeypatch):
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
+
     import webui.runtime as engine
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
 
@@ -85,8 +82,8 @@ def test_portfolio_and_analysis(tmp_path, monkeypatch):
 
 
 def test_history_survives_restart_and_keeps_separate_runs(tmp_path):
-    from webui.storage import Store
     from webui.runtime import RunManager
+    from webui.storage import Store
     store = Store(tmp_path)
     config = {"llm_provider": "deepseek", "api_key": "never-save-this"}
     first = store.create("AMD", "2026-10-16", ["market"], config, "stock")
@@ -115,10 +112,12 @@ def test_bulk_portfolio_edit_is_durable_and_validated(tmp_path):
 
 def test_refresh_reconnects_to_active_run(tmp_path, monkeypatch):
     pytest.importorskip("streamlit")
-    from streamlit.testing.v1 import AppTest
-    import webui.runtime as runtime
     import threading
     import time
+
+    from streamlit.testing.v1 import AppTest
+
+    import webui.runtime as runtime
     entered, release = threading.Event(), threading.Event()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
 

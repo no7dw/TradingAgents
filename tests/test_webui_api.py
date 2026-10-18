@@ -3,9 +3,11 @@ import asyncio
 import json
 
 import pytest
+
 pytest.importorskip('fastapi')
 from fastapi.testclient import TestClient
-from webui.server import create_app, ChatRequest
+
+from webui.server import ChatRequest, create_app
 
 
 class FakeLLM:
@@ -115,7 +117,8 @@ def test_analysis_endpoint_keeps_existing_graph_and_history(tmp_path):
         deadline=time.monotonic()+5
         while time.monotonic()<deadline:
             record=client.get(f'/api/runs/{run_id}').json()
-            if record['status']!='running': break
+            if record['status']!='running':
+                break
             time.sleep(.02)
         assert record['status']=='completed'
         assert record['ticker']=='MSFT'

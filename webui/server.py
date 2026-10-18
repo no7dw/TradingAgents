@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -16,9 +16,9 @@ from pydantic import BaseModel, Field
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients import create_llm_client
 from tradingagents.llm_clients.model_catalog import MODEL_OPTIONS
+from webui.holdings import parse_holdings, portfolio_context
 from webui.runtime import RunManager, safe_error
 from webui.storage import REPORT_KEYS, SYMBOL, Store
-from webui.holdings import parse_holdings, portfolio_context
 
 
 class AnalysisRequest(BaseModel):
@@ -81,7 +81,7 @@ def create_app(root=None, graph_factory=None, llm_factory=None):
 
     @app.get('/api/config')
     def config():
-        return dict(provider=DEFAULT_CONFIG['llm_provider'], quick=DEFAULT_CONFIG['quick_think_llm'], deep=DEFAULT_CONFIG['deep_think_llm'], language=DEFAULT_CONFIG.get('output_language', 'English'), models=MODEL_OPTIONS, setup=store.get_setting('analysis_setup'))
+        return {'provider': DEFAULT_CONFIG['llm_provider'], 'quick': DEFAULT_CONFIG['quick_think_llm'], 'deep': DEFAULT_CONFIG['deep_think_llm'], 'language': DEFAULT_CONFIG.get('output_language', 'English'), 'models': MODEL_OPTIONS, 'setup': store.get_setting('analysis_setup')}
 
     def validate_setup(body):
         ticker = body.ticker.strip().upper()
@@ -256,6 +256,7 @@ def create_app(root=None, graph_factory=None, llm_factory=None):
 
 if __name__ == '__main__':
     import uvicorn
+
     from webui.symbols import prepare_catalog
     prepare_catalog()
     uvicorn.run(create_app(), host='127.0.0.1', port=8502)

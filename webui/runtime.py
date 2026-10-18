@@ -3,6 +3,7 @@ import os
 import threading
 
 from langchain_core.callbacks import BaseCallbackHandler
+
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 

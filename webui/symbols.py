@@ -32,7 +32,7 @@ def parse_directory(text, nasdaq=False):
         name = (row.get('Security Name') or '').strip()
         if not name or not re.fullmatch(r'[A-Z][A-Z0-9.-]{0,39}', symbol):
             continue
-        stocks.append(dict(symbol=symbol, name=name, exchange='NASDAQ' if nasdaq else EXCHANGES.get(row.get('Exchange'), row.get('Exchange', '')), source_symbol=source_symbol))
+        stocks.append({'symbol': symbol, 'name': name, 'exchange': 'NASDAQ' if nasdaq else EXCHANGES.get(row.get('Exchange'), row.get('Exchange', '')), 'source_symbol': source_symbol})
     if not stocks:
         raise ValueError('Symbol directory contains no stock listings')
     return stocks
@@ -69,7 +69,7 @@ class SymbolDirectory:
                     for index, url in enumerate(SOURCES):
                         for item in parse_directory(self.fetch(url), nasdaq=index == 0):
                             stocks.setdefault(item['symbol'], item)
-                    payload = dict(fetched_at=self.clock(), stocks=sorted(stocks.values(), key=lambda s:s['symbol']))
+                    payload = {'fetched_at': self.clock(), 'stocks': sorted(stocks.values(), key=lambda s:s['symbol'])}
                     self.path.parent.mkdir(parents=True, exist_ok=True)
                     with tempfile.NamedTemporaryFile(mode='w', dir=self.path.parent, delete=False) as file:
                         json.dump(payload, file)

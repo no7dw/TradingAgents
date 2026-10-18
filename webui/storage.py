@@ -5,7 +5,7 @@ import sqlite3
 import tempfile
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -14,7 +14,7 @@ REPORT_KEYS = ("market_report", "sentiment_report", "news_report", "fundamentals
 
 
 def timestamp():
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class Store:
@@ -41,7 +41,7 @@ class Store:
     def chat(self, run_id):
         with self.connect() as db:
             rows = db.execute("SELECT id, question, answer, status, error FROM chat_turns WHERE run_id=? ORDER BY rowid", (run_id,)).fetchall()
-        return [dict(id=r[0], question=r[1], answer=r[2], status=r[3], error=r[4]) for r in rows]
+        return [{"id": r[0], "question": r[1], "answer": r[2], "status": r[3], "error": r[4]} for r in rows]
 
     def begin_turn(self, turn_id, run_id, question):
         with self.connect() as db:
@@ -65,7 +65,7 @@ class Store:
             connection.close()
 
     def create(self, ticker, day, analysts, config, asset_type):
-        record = dict(id=uuid4().hex, created_at=timestamp(), updated_at=timestamp(), ticker=ticker, day=day, analysts=list(analysts), asset_type=asset_type, status="running", state={}, activity=[], signal=None, report_path=None, error=None)
+        record = {"id": uuid4().hex, "created_at": timestamp(), "updated_at": timestamp(), "ticker": ticker, "day": day, "analysts": list(analysts), "asset_type": asset_type, "status": "running", "state": {}, "activity": [], "signal": None, "report_path": None, "error": None}
         # Never persist credentials or the caller's full configuration.
         record["config"] = {key: config.get(key) for key in ("llm_provider", "quick_think_llm", "deep_think_llm", "output_language", "max_debate_rounds", "max_risk_discuss_rounds")}
         if config.get('portfolio_context'):

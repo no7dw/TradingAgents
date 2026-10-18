@@ -14,7 +14,7 @@ CSV = '\ufeffsymbol,shares,avg_cost,market_value,currency\naapl,10.5,180,2200,US
 
 def test_normalizes_aliases_and_preserves_decimal_values():
     snapshot = parse_holdings(CSV, DAY)
-    assert snapshot['positions'][0] == dict(ticker='AAPL', quantity='10.5', avg_cost='180', market_value='2200', currency='USD')
+    assert snapshot['positions'][0] == {'ticker': 'AAPL', 'quantity': '10.5', 'avg_cost': '180', 'market_value': '2200', 'currency': 'USD'}
     assert 'avg_cost' not in snapshot['positions'][1]
     assert parse_holdings('ticker,quantity\nAMD,1\n', DAY)['positions'][0]['currency'] == 'USD'
 
@@ -63,7 +63,7 @@ def test_snapshot_change_in_omitted_position_invalidates_context():
 
 def test_import_preview_save_restart_invalid_import_and_clear(tmp_path):
     with TestClient(create_app(tmp_path)) as client:
-        body = dict(csv=CSV, as_of=str(DAY))
+        body = {'csv': CSV, 'as_of': str(DAY)}
         assert client.get('/api/holdings').json() is None
         assert client.post('/api/holdings/preview', json=body).status_code == 200
         assert client.get('/api/holdings').json() is None
@@ -72,7 +72,7 @@ def test_import_preview_save_restart_invalid_import_and_clear(tmp_path):
         assert client.get('/api/holdings').json() == saved
     with TestClient(create_app(tmp_path)) as client:
         assert client.get('/api/holdings').json() == saved
-        body = dict(ticker='AAPL', day=str(DAY), analysts=['market'], provider='deepseek', quick='deepseek-v4-flash', deep='deepseek-v4-flash', use_holdings=True)
+        body = {'ticker': 'AAPL', 'day': str(DAY), 'analysts': ['market'], 'provider': 'deepseek', 'quick': 'deepseek-v4-flash', 'deep': 'deepseek-v4-flash', 'use_holdings': True}
         assert client.put('/api/setup', json=body).status_code == 200
         assert client.delete('/api/holdings').status_code == 200
         assert client.get('/api/holdings').json() is None
@@ -97,7 +97,7 @@ def test_optional_holdings_frozen_per_run_and_available_in_chat(tmp_path):
         def get_llm(self):
             return LLM()
     app = create_app(tmp_path, graph_factory=Graph, llm_factory=lambda **kw: Client())
-    body = dict(ticker='AAPL', day=str(DAY), analysts=['market'], provider='deepseek', quick='deepseek-v4-flash', deep='deepseek-v4-flash')
+    body = {'ticker': 'AAPL', 'day': str(DAY), 'analysts': ['market'], 'provider': 'deepseek', 'quick': 'deepseek-v4-flash', 'deep': 'deepseek-v4-flash'}
     with TestClient(app) as client:
         assert client.post('/api/runs', json={**body, 'use_holdings': True}).status_code == 422
         client.put('/api/holdings', json={'csv': CSV, 'as_of': str(DAY)})
@@ -108,7 +108,8 @@ def test_optional_holdings_frozen_per_run_and_available_in_chat(tmp_path):
             run_id = response.json()['id']
             for _ in range(100):
                 record = client.get(f'/api/runs/{run_id}').json()
-                if record['status'] != 'running': break
+                if record['status'] != 'running':
+                    break
                 time.sleep(.01)
             assert record['status'] == 'completed'
             assert bool(captured[-1].get('portfolio_context')) == enabled
@@ -123,11 +124,11 @@ def test_optional_holdings_frozen_per_run_and_available_in_chat(tmp_path):
 
 
 def test_holdings_reach_trader_all_risk_agents_and_portfolio_manager():
-    from tradingagents.agents.trader.trader import create_trader
     from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
     from tradingagents.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
     from tradingagents.agents.risk_mgmt.conservative_debator import create_conservative_debator
     from tradingagents.agents.risk_mgmt.neutral_debator import create_neutral_debator
+    from tradingagents.agents.trader.trader import create_trader
     from tradingagents.graph.propagation import Propagator
     context = portfolio_context(parse_holdings(CSV, DAY), 'AAPL', DAY)
     state = Propagator().create_initial_state('AAPL', str(DAY), portfolio_context=context)
@@ -144,9 +145,9 @@ def test_holdings_reach_trader_all_risk_agents_and_portfolio_manager():
     from tradingagents.graph.trading_graph import TradingAgentsGraph
     graph = object.__new__(TradingAgentsGraph)
     graph.selected_analysts = ['market']
-    graph.config = dict(max_debate_rounds=1, max_risk_discuss_rounds=1)
+    graph.config = {'max_debate_rounds': 1, 'max_risk_discuss_rounds': 1}
     baseline = graph._run_signature('stock')
     graph.config['portfolio_context'] = context
     assert graph._run_signature('stock') != baseline
-    graph.config['portfolio_context'] = ''
+    graph.config.pop('portfolio_context')
     assert graph._run_signature('stock') == baseline
