@@ -43,6 +43,7 @@ def create_portfolio_manager(llm):
         prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
 
 {instrument_context}
+{state.get('portfolio_context', '')}
 
 ---
 

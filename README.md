@@ -303,3 +303,120 @@ Please reference our work if you find *TradingAgents* provides you with some hel
       url={https://arxiv.org/abs/2412.20138}, 
 }
 ```
+
+## Local React research desk
+
+The React desk includes TradingView charts, editable watchlists, saved analysis
+history, and a ChatGPT-style conversation panel built with assistant-ui's
+thread and composer primitives. The chat panel can be hidden or resized; its
+visibility, width, and selected analysis are remembered in the browser.
+Use **Ask with AI** beside **Run analysis** to toggle only the assistant. Analysis setup
+opens above the chart and stays available independently of chat visibility.
+
+```bash
+python -m pip install -e '.[web]'
+npm --prefix web ci
+npm --prefix web run build
+python -m webui.server
+```
+
+Open <http://127.0.0.1:8502>. After the first build, `./scripts/run_webui.sh`
+starts the desk with the repository's `venv` when available. Rebuild the frontend
+after editing React sources. For frontend development, start the Python server
+and run `npm --prefix web run dev` in another terminal (port 5173).
+
+The independent **Analysis setup** panel uses provider/model defaults and API keys from the repository's
+`.env`. Select analysts, date, models, language, and debate rounds, then run the
+same Python graph used by the CLI. **Save settings** saves the setup in the
+local database without starting a run; **Run analysis** above the chart launches the
+current ticker with the current setup. Saved settings restore on refresh.
+Selecting a ticker loads its latest saved analysis across reports, activity, run
+details, progress, and chat; symbols without history show an empty state.
+Team progress shows a percentage, completed
+step count, and latest finished step in two compact lines.
+
+**Assistant** conversations are linked to the selected saved analysis. Replies
+stream from the configured LLM, explain report evidence, and can be stopped or
+copied. Chat uses saved reports and the latest 20 conversation turns as context;
+it has no live lookup or execution tools. Use **Run analysis** explicitly for a
+new run. API credentials stay on the Python server. Messages and partial replies
+save to SQLite and reload after refresh. Failed, cancelled, or interrupted turns
+retain their partial text. The API accepts one streaming reply per analysis.
+
+The symbol inputs are searchable dropdowns showing ticker, company/security name,
+and exchange, backed by [Nasdaq Trader's symbol directories](https://www.nasdaqtrader.com/trader.aspx?id=symboldirdefs).
+ETFs and test issues are excluded. The server caches the directory for 24 hours
+and checks it at startup; searches run locally in the browser. To refresh the
+cached/exported catalog while the server is running, use:
+
+```bash
+python -m webui.symbols
+```
+
+Refresh the browser afterward. If upstream data is unavailable, the last saved
+catalog remains usable. Custom symbols remain available for crypto and other
+markets. Watchlist rows and stock-search results show company logos from FMP;
+missing images fall back to a letter badge.
+
+The left rail contains the watchlist and analysis history. Use **Edit portfolio**
+to add, replace, remove, or reorder tickers. All saved data remains under
+`~/.tradingagents/webui/`:
+
+- `portfolio.json`: atomically saved watchlist.
+- `history.sqlite3`: analysis snapshots, settings, activity, and chat turns.
+- `us_symbols.json`: cached Nasdaq symbol/name catalog (exported as a local web asset).
+
+**Optional holdings context:** choose **Import holdings CSV**, select a UTF-8
+CSV, set the holdings date, **Preview CSV**, then **Save holdings**. The CSV
+template is downloadable in the importer. For example:
+
+```csv
+ticker,quantity,avg_cost,market_value,currency
+AAPL,10,180,2200,USD
+NVDA,5,100,700,USD
+```
+
+Only `ticker,quantity` are required (`symbol,shares` also work). `avg_cost` is
+cost per share and `market_value` is the total position value, in `currency`
+(USD if omitted). Use plain numbers without currency symbols or thousands
+separators. This first version supports positive long positions, one row per
+ticker, at most 500 positions and 1 MB. Combine duplicate tax lots before
+importing. Unknown columns are ignored; broker-specific export layouts may need
+renaming. Saving replaces the current holdings snapshot in SQLite, independently
+of the watchlist; **Clear saved holdings** removes it from future runs.
+
+Enable **Use holdings in analysis** in the left rail or **Analysis setup**, then
+**Run analysis**. **Save settings** remembers this preference. It is off by
+default; importing alone does not enable it. When enabled, a bounded summary
+(up to 20 positions, always including the target if present, and totals per
+currency) goes to the trader **before** its proposal, the three risk analysts,
+and the final portfolio manager. Follow-up chat uses the same frozen summary.
+Each run retains its complete imported snapshot and summary even after a later
+import or refresh; inspect the summary under **Run details → Portfolio context**.
+Holdings dated after the analysis date are rejected to avoid future context in
+historical runs. With holdings disabled, the previous analysis flow is unchanged.
+
+Imported costs and values are dated user data, not live prices. The agents are
+instructed to account for exposure, distinguish adding from trimming, and avoid
+inventing cash, FX conversions, or portfolio weights from share counts. The
+output remains a single-ticker recommendation rather than a full rebalance.
+Useful next context additions are available cash/base currency, investment
+horizon/risk tolerance, maximum position/sector weights, and explicit account
+coverage; these would make portfolio-level sizing more meaningful.
+
+Analysis workers continue across browser refreshes. A server restart retains
+snapshots and marks unfinished runs/replies interrupted; start a new run to retry.
+Only one analysis runs at a time because the engine uses process-global dataflow
+configuration. Run a single backend process against this local database; do not
+run the React and legacy Streamlit servers simultaneously during analysis.
+
+TradingView loads externally, independently of the analysis date/data vendors;
+its market data may be delayed. The chart remains visible when chat is hidden. This UI
+has no login system and binds to localhost. It does not connect to a broker or
+place orders.
+
+The earlier Streamlit interface remains available as a fallback:
+
+```bash
+python -m streamlit run webui/app.py --server.address 127.0.0.1
+```

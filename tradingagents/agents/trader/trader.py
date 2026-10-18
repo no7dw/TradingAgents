@@ -66,6 +66,7 @@ def create_trader(llm):
                 "content": (
                     f"Here is the research team's investment plan for {company_name}. "
                     f"{instrument_context}\n\n"
+                    f"{state.get('portfolio_context', '')}"
                     f"{report_section}"
                     f"Proposed Investment Plan:\n{investment_plan}\n\n"
                     f"Make an informed, strategic trading decision."

@@ -221,3 +221,11 @@ __marimo__/
 # Enterprise env file (secrets) and generated run reports
 .env.enterprise
 reports/
+
+# React research desk dependencies and build output
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
+
+# Generated Nasdaq catalog (refreshed from the local cache)
+web/public/assets/us-symbols.json

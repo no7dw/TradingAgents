@@ -1,6 +1,7 @@
 # TradingAgents/graph/trading_graph.py
 
 import json
+import hashlib
 import logging
 import os
 from contextlib import contextmanager
@@ -394,14 +395,18 @@ class TradingAgentsGraph:
         selection, debate/risk depth, or asset mode starts fresh instead of
         silently continuing the previous graph (#1089).
         """
-        return "|".join([
+        signature = "|".join([
             "analysts=" + ",".join(self.selected_analysts),
             f"debate={self.config['max_debate_rounds']}",
             f"risk={self.config['max_risk_discuss_rounds']}",
             f"asset={asset_type}",
         ])
+        context = self.config.get('portfolio_context', '')
+        if context:
+            signature += '|holdings=' + hashlib.sha256(context.encode()).hexdigest()
+        return signature
 
-    def propagate(self, company_name, trade_date, asset_type: str = "stock"):
+    def propagate(self, company_name, trade_date, asset_type: str = "stock", on_update=None):
         """Run the trading agents graph for a company on a specific date.
 
         ``asset_type`` selects between the stock pipeline (default) and the
@@ -416,6 +421,9 @@ class TradingAgentsGraph:
         when the decision had no parseable rating (#1170); guard with
         ``tradingagents.agents.utils.rating.is_review`` before mapping it to the
         PortfolioRating enum.
+
+        ``on_update``, when supplied, receives each streamed state snapshot.
+        Callback errors propagate and checkpoint cleanup still runs.
         """
         self.ticker = company_name
 
@@ -426,6 +434,7 @@ class TradingAgentsGraph:
             return self._run_graph(
                 company_name, trade_date, asset_type=asset_type,
                 checkpoint_thread_id=thread_id_value,
+                on_update=on_update,
             )
 
     def begin_checkpoint(self, company_name, trade_date, asset_type: str = "stock") -> str | None:
@@ -507,7 +516,7 @@ class TradingAgentsGraph:
         return write_report_tree(final_state, ticker, save_path)
 
     def _run_graph(self, company_name, trade_date, asset_type: str = "stock",
-                   checkpoint_thread_id: str | None = None):
+                   checkpoint_thread_id: str | None = None, on_update=None):
         """Execute the graph and write the resulting state to disk and memory log."""
         # Initialize state — inject memory log context for PM and the
         # deterministically resolved instrument identity for all agents. On a
@@ -523,6 +532,7 @@ class TradingAgentsGraph:
             asset_type=asset_type,
             past_context=past_context,
             instrument_context=instrument_context,
+            portfolio_context=getattr(self, 'config', {}).get('portfolio_context', ''),
         )
         args = self.propagator.get_graph_args()
 
@@ -533,11 +543,13 @@ class TradingAgentsGraph:
 
         # None resumes an existing checkpoint; init_agent_state starts fresh (#1249).
         graph_input = self.checkpoint_input(init_agent_state)
-        if self.debug:
+        if self.debug or on_update is not None:
             trace = []
             last_printed = None
             for chunk in self.graph.stream(graph_input, **args):
-                if chunk["messages"]:
+                if on_update is not None:
+                    on_update(chunk)
+                if self.debug and chunk["messages"]:
                     msg = chunk["messages"][-1]
                     # Nodes after the trader don't append to messages, so the
                     # same trailing message repeats across chunks. Print it only
@@ -546,7 +558,7 @@ class TradingAgentsGraph:
                     if signature != last_printed:
                         msg.pretty_print()
                         last_printed = signature
-                    trace.append(chunk)
+                trace.append(chunk)
             # Streamed chunks are per-node deltas. Merge them so the returned
             # state matches what graph.invoke() yields in the non-debug path.
             final_state = {}
@@ -607,6 +619,8 @@ class TradingAgentsGraph:
 
         # Save to file. Reject ticker values that would escape the
         # results directory when joined as a path component.
+        if final_state.get('portfolio_context'):
+            self.log_states_dict[str(trade_date)]['portfolio_context'] = final_state['portfolio_context']
         safe_ticker = safe_ticker_component(self.ticker)
         directory = Path(self.config["results_dir"]) / safe_ticker / "TradingAgentsStrategy_logs"
         directory.mkdir(parents=True, exist_ok=True)

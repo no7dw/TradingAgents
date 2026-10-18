@@ -24,6 +24,8 @@ dependencies = [
     "questionary>=2.1.0",
     "redis>=6.2.0",
     "requests>=2.32.4",
+    # HTTP clients need this optional transport dependency for SOCKS proxies.
+    "socksio>=1.0.0,<2",
     "rich>=14.0.0",
     "typer>=0.21.0",
     "setuptools>=80.9.0",
@@ -34,6 +36,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+web = ["streamlit>=1.41,<2", "fastapi>=0.115", "uvicorn>=0.34", "httpx>=0.27"]
 dev = [
     "ruff>=0.15",
     "pytest>=8.0",
@@ -49,7 +52,7 @@ bedrock = [
 tradingagents = "cli.main:app"
 
 [tool.setuptools.packages.find]
-include = ["tradingagents*", "cli*"]
+include = ["tradingagents*", "cli*", "webui*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]
