@@ -432,6 +432,10 @@ visibility, width, and selected analysis are remembered in the browser.
 Use **Ask with AI** beside **Run analysis** to toggle only the assistant. Analysis setup
 opens above the chart and stays available independently of chat visibility.
 
+<p align="center">
+  <img src="assets/web/research_desk.png" width="100%" alt="TradingAgents research desk showing a TradingView chart, watchlist, saved analysis history, portfolio decision, and research assistant">
+</p>
+
 ```bash
 python -m pip install -e '.[web]'
 npm --prefix web ci
@@ -453,6 +457,10 @@ Selecting a ticker loads its latest saved analysis across reports, activity, run
 details, progress, and chat; symbols without history show an empty state.
 Team progress shows a percentage, completed
 step count, and latest finished step in two compact lines.
+
+<p align="center">
+  <img src="assets/web/research_result.png" width="90%" alt="Completed TradingAgents analysis showing team progress and the portfolio decision">
+</p>
 
 **Assistant** conversations are linked to the selected saved analysis. Replies
 stream from the configured LLM, explain report evidence, and can be stopped or
